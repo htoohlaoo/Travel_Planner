@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Leaflet Map with CartoDB Tiles</title>
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      crossorigin=""
+    />
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #testMap {
+            height: 100vh;
+            width: 100vw;
+        }
+    </style>
+</head>
+<body>
+    <div id="testMap"></div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      crossorigin=""
+    ></script>
+    <script>
+        {% comment %} (21.9750, 96.0833) {% endcomment %}
+        const map = L.map('testMap').setView([21.9750, 95.0833], 13);
+
+       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '© CARTO, © OpenStreetMap contributors'
+        }).addTo(map);
+{% comment %} 
+L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', {
+    attribution: 'Map tiles by Stamen',
+    maxZoom: 20
+}).addTo(map); {% endcomment %}
+
+        L.marker([21.9162, 95.9558])
+            .addTo(map)
+            .bindPopup('Leaflet map with CartoDB tiles 🎉')
+            .openPopup();
+    </script>
+</body>
+</html>
