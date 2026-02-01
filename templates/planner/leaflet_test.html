@@ -1,49 +1,143 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <title>Leaflet Map with CartoDB Tiles</title>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      crossorigin=""
-    />
-    <style>
-        html, body {
-            height: 100%;
-            margin: 0;
-            padding: 0;
-        }
-        #testMap {
-            height: 100vh;
-            width: 100vw;
-        }
-    </style>
+<meta charset="UTF-8">
+<title>Mandalay Hotels Map - Select Hotel</title>
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  crossorigin=""
+/>
+<style>
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+#testMap {
+    height: 100vh;
+    width: 100vw;
+}
+
+/* Popup styling */
+.custom-popup .leaflet-popup-content-wrapper {
+    background-color: #ffffff;
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-weight: bold;
+    font-size: 14px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+/* Tooltip styling */
+.leaflet-tooltip.custom-tooltip {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #333;
+    font-size: 13px;
+    font-family: sans-serif;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    line-height: 1.4;
+}
+
+/* Small icon-only button */
+.select-hotel-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px; /* adjust icon size */
+    padding: 0;
+    margin-left: 6px;
+}
+.select-hotel-btn:hover {
+    color: #007BFF;
+}
+</style>
 </head>
 <body>
-    <div id="testMap"></div>
+<div id="testMap"></div>
 
-    <script
-      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-      crossorigin=""
-    ></script>
-    <script>
-        {% comment %} (21.9750, 96.0833) {% endcomment %}
-        const map = L.map('testMap').setView([21.9750, 95.0833], 13);
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script>
+const map = L.map('testMap').setView([21.9587, 96.0891], 13);
 
-       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '© CARTO, © OpenStreetMap contributors'
-        }).addTo(map);
-{% comment %} 
-L.tileLayer('https://stamen-tiles.a.ssl.fastly.net/toner/{z}/{x}/{y}.png', {
-    attribution: 'Map tiles by Stamen',
-    maxZoom: 20
-}).addTo(map); {% endcomment %}
+L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© CARTO, © OpenStreetMap contributors'
+}).addTo(map);
 
-        L.marker([21.9162, 95.9558])
-            .addTo(map)
-            .bindPopup('Leaflet map with CartoDB tiles 🎉')
-            .openPopup();
-    </script>
+// Hotels data: [lat, lng, name, rating, grade, type, customers]
+const hotels = [
+    [21.9587, 96.0891, '🏨 Central Mandalay', 4.5, '4 star', 'Hotel', 120],
+    [21.9720, 96.0810, '🏨 Mandalay Palace Hotel', 4.7, '5 star', 'Hotel', 230],
+    [21.9540, 96.0895, '🏨 U Bein View Motel', 4.2, '3 star', 'Motel', 85],
+    [21.9600, 96.0830, '🏨 Mahamuni Hotel', 4.0, '3 star', 'Hotel', 95]
+];
+
+hotels.forEach(([lat, lng, name, rating, grade, type, customers], index) => {
+
+    // Popup HTML content with icon-only select button
+    const popupContent = `
+        <div style="display:flex; align-items:center; justify-content:space-between; width:150px;">
+            <span>${name}</span>
+            <button class="select-hotel-btn" onclick="selectHotel(${index})">Select 👆</button>
+        </div>
+    `;
+
+    // Permanent popup
+    L.popup({
+        closeOnClick: false,
+        autoClose: false,
+        className: 'custom-popup',
+        closeButton: false
+    })
+    .setLatLng([lat, lng])
+    .setContent(popupContent)
+    .openOn(map);
+
+    // Circle marker for hover tooltip
+    const circle = L.circleMarker([lat, lng], {
+        radius: 10,
+        color: '#007BFF',
+        fillColor: '#007BFF',
+        fillOpacity: 0.7
+    }).addTo(map);
+
+    const tooltipContent = `
+        <strong>${name}</strong><br>
+        Rating: ${rating} ★ (${customers} reviews)<br>
+        Grade: ${grade}<br>
+        Type: ${type}
+    `;
+
+    circle.bindTooltip(tooltipContent, {
+        className: 'custom-tooltip',
+        direction: 'bottom',
+        opacity: 0.95,
+        sticky: true
+    });
+});
+
+// Function triggered when user clicks icon
+function selectHotel(index) {
+    const hotel = hotels[index];
+    const confirmed = confirm(`Do you want to select ${hotel[2]}?`);
+    
+    if (confirmed) {
+        // User clicked OK
+        console.log(`You selected ${hotel[2]}!`);
+        // TODO: Send selection to Django backend via fetch/ajax if needed
+        // Example:
+        // fetch('/select-hotel/', {
+        //     method: 'POST',
+        //     headers: {'Content-Type': 'application/json'},
+        //     body: JSON.stringify({hotel: hotel[2]})
+        // });
+    } else {
+        // User clicked Cancel
+        console.log(`Selection canceled for ${hotel[2]}`);
+    }
+}
+</script>
 </body>
 </html>
