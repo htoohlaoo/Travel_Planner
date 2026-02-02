@@ -845,6 +845,7 @@ class SelectHotelWithMapView(LoginRequiredMixin, View):
             'destination_name': trip.destination.name,
             'destination_id': trip.destination.id,
         }
+        #print(hotel_markers)
         return render(request, self.template_name, context)
 # ========== FILTER HOTELS VIEW ==========
 class FilterHotelsView(View):
