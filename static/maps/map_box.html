@@ -145,7 +145,15 @@ function showHotelModal(hotel) {
     modalOverlay.style.display = 'block';
 
     selectHotelBtn.onclick = () => {
-        alert(`You selected ${hotel.name}!`);
+        // send selected hotel to parent
+        window.parent.postMessage(
+            {
+                type: "HOTEL_SELECTED",
+                hotelId: hotel.id
+            },
+            window.location.origin
+        );
+
         closeModal();
     };
 }

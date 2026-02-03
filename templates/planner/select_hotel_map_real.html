@@ -775,5 +775,17 @@
 
         console.log('Sent hotels to iframe:', hotelsData);
     });
+    window.addEventListener("message", function(event) {
+        if (event.origin !== window.location.origin) return;
+
+        if (event.data.type === "HOTEL_SELECTED") {
+            const hotelId = event.data.hotelId;
+
+            console.log("Hotel selected from iframe:", hotelId);
+
+            // trigger normal selection logic
+            selectHotelOnMap(hotelId);
+        }
+    });
 </script>
 {% endblock %}

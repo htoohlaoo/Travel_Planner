@@ -2270,7 +2270,7 @@ class AddActivityView(LoginRequiredMixin, View):
             data = json.loads(request.body)
             day_number = data.get('day_number')
             activity_data = data.get('activity')
-            
+            print("Add activity works",data);
             return JsonResponse({
                 'success': True,
                 'message': 'Activity added successfully',
