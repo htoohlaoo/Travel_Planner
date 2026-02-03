@@ -528,6 +528,148 @@
 const tripId = "{{ trip.id }}";
 const planId = "{{ plan_id }}";
 
+//storage key for storing activity in localStorage
+const STORAGE_KEY = `${tripId}:${planId}`;
+
+function add_activity(dayNumber, activityObject) {
+    // 1. Get existing data from localStorage (or empty object if none)
+    let allActivities = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+
+    // 2. Ensure the specific day exists as an array
+    if (!allActivities[dayNumber]) {
+        allActivities[dayNumber] = [];
+    }
+
+    // 3. Add the new activity
+    allActivities[dayNumber].push(activityObject);
+
+    // 4. Save back to localStorage
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allActivities));
+    
+    console.log(`Activity "${activityObject.title}" added to Day ${dayNumber}`);
+}
+
+/**
+ * Removes an activity based on the day and the title (activity name).
+ */
+function remove_activity(dayNumber, activityName) {
+    // 1. Get existing data
+    let allActivities = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+
+    // 2. Check if the day exists
+    if (allActivities[dayNumber]) {
+        // 3. Filter out the activity with the matching title
+        const initialLength = allActivities[dayNumber].length;
+        allActivities[dayNumber] = allActivities[dayNumber].filter(
+            activity => activity.title !== activityName
+        );
+
+        // 4. If the array is now empty, you might want to delete the day key entirely
+        if (allActivities[dayNumber].length === 0) {
+            delete allActivities[dayNumber];
+        }
+
+        // 5. Save updated data
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(allActivities));
+        
+        if (initialLength > (allActivities[dayNumber]?.length || 0)) {
+            console.log(`Removed "${activityName}" from Day ${dayNumber}`);
+        } else {
+            console.log(`Activity "${activityName}" not found on Day ${dayNumber}`);
+        }
+    }
+}
+
+function get_activity_by_day(dayNumber) {
+    // 1. Get all stored activities
+    const allActivities = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+
+    // 2. Return activities for that day or empty array
+    return allActivities[dayNumber] || [];
+}
+
+function renderActivities(dayNumber) {
+    const timeline = document.getElementById(`timeline-day-${dayNumber}`);
+    if (!timeline) return;
+
+    const activities = get_activity_by_day(dayNumber);
+    timeline.innerHTML = "";
+
+    activities.forEach((activity, index) => {
+        const html = `
+        <div class="timeline-item" id="activity-${dayNumber}-${index}">
+            <div class="timeline-marker">
+                <i class="${activity.icon || 'fas fa-map-marker-alt'}"></i>
+            </div>
+            <div class="timeline-content">
+                <div class="card activity-card mb-4">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="d-flex align-items-start">
+                                    <div class="me-4">
+                                        <span class="badge bg-primary px-3 py-2">
+                                            ${activity.time || ""}
+                                        </span>
+                                        <div class="mt-2 xsmall text-center">
+                                            ${activity.duration || ""}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h5 class="fw-bold mb-2">${activity.title}</h5>
+                                        <p class="text-gray mb-3">
+                                            ${activity.description || ""}
+                                        </p>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-map-marker-alt me-2 text-muted"></i>
+                                            <span class="small">
+                                                ${activity.location || ""}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="text-end">
+                                    <div class="btn-group">
+                                        <button class="btn btn-sm btn-outline-danger"
+                                            onclick="remove_activity(${dayNumber}, '${activity.title}');
+                                                     renderActivities(${dayNumber});">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-edit"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+        timeline.insertAdjacentHTML("beforeend", html);
+    });
+
+    // Re-add "Add Activity" button
+    timeline.insertAdjacentHTML("beforeend", `
+        <div class="timeline-item">
+            <div class="timeline-marker">
+                <i class="fas fa-plus"></i>
+            </div>
+            <div class="timeline-content">
+                <button class="btn btn-outline-primary w-100 py-3 add-activity-btn"
+                        data-day="${dayNumber}">
+                    <i class="fas fa-plus-circle me-2"></i>Add Custom Activity
+                </button>
+            </div>
+        </div>
+    `);
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
@@ -567,6 +709,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // Save activity
         if (saveActivityBtn) {
             saveActivityBtn.addEventListener('click', function() {
+                console.log("Add Activity works");
                 if (!addActivityForm) return;
                 
                 const formData = new FormData(addActivityForm);
@@ -582,8 +725,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     icon: 'fas fa-star',
                     is_custom: true
                 };
-                
-                // Send AJAX request to add activity
+                if(dayNumber && activity) {
+                    add_activity(dayNumber, activity);
+                }else{
+                    alert("Error adding activity")
+                }
+                {% comment %} // Send AJAX request to add activity
                 fetch(`/planner/trip/${tripId}/plan/${planId}/add-activity/`, {
                     method: 'POST',
                     headers: {
@@ -598,8 +745,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.success) {
+                        console.log(data);
                         // Reload the page
-                        location.reload();
+                        //location.reload();
                     } else {
                         alert('Error adding activity: ' + (data.error || 'Unknown error'));
                     }
@@ -607,7 +755,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .catch(error => {
                     console.error('Error:', error);
                     alert('An error occurred. Please try again.');
-                });
+                }); {% endcomment %}
                 
                 addActivityModalInstance.hide();
             });
