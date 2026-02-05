@@ -583,6 +583,21 @@ function remove_activity(dayNumber, activityName) {
     }
 }
 
+function update_activity(dayNumber, index, updatedActivity) {
+    let allActivities =
+        JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+
+    if (!allActivities[dayNumber]) return;
+
+    allActivities[dayNumber][index] = updatedActivity;
+
+    localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify(allActivities)
+    );
+}
+
+
 function get_activity_by_day(dayNumber) {
     // 1. Get all stored activities
     const allActivities = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
@@ -590,6 +605,7 @@ function get_activity_by_day(dayNumber) {
     // 2. Return activities for that day or empty array
     return allActivities[dayNumber] || [];
 }
+
 
 function renderActivities(dayNumber) {
     const timeline =
@@ -646,7 +662,9 @@ function renderActivities(dayNumber) {
                                                 <i class="fas fa-trash"></i>
                                             </button>
 
-                                            <button class="btn btn-sm btn-outline-secondary">
+                                            <button class="btn btn-sm btn-outline-secondary edit-activity-btn"
+                                                data-day="${dayNumber}"
+                                                data-index="${index}">
                                                 <i class="fas fa-edit"></i>
                                             </button>
                                         </div>
@@ -681,7 +699,7 @@ function renderActivities(dayNumber) {
 document.addEventListener('DOMContentLoaded', function() {
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-    
+    let editingIndex = null;
     {% for day in days_data %}
         renderActivities({{ day.day_number }});
     {% endfor %}
@@ -722,20 +740,48 @@ document.addEventListener('DOMContentLoaded', function() {
         // Event Delegation for Add Activity Buttons
         document.querySelectorAll('.timeline').forEach(timeline => {
             timeline.addEventListener('click', function(e) {
-                const btn = e.target.closest('.add-activity-btn');
-                if (!btn) return; // click not on add button
-
-                const day = btn.getAttribute('data-day');
+                // ADD BUTTON
+            const addBtn = e.target.closest('.add-activity-btn');
+            if (addBtn) {
+                const day = addBtn.getAttribute('data-day');
                 if (activityDayInput) activityDayInput.value = day;
 
-                // Set default time
-                const timeInput = addActivityForm?.querySelector('[name="activity_time"]');
-                if (timeInput) {
-                    const now = new Date();
-                    timeInput.value = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
-                }
+                editingIndex = null;
+                saveActivityBtn.textContent = "Add Activity";
 
                 addActivityModalInstance.show();
+                return;
+            }
+
+            // EDIT BUTTON
+            const editBtn = e.target.closest('.edit-activity-btn');
+            if (editBtn) {
+                const day = editBtn.getAttribute('data-day');
+                const index = editBtn.getAttribute('data-index');
+
+                const activities = get_activity_by_day(day);
+                const activity = activities[index];
+
+                if (!activity) return;
+
+                editingIndex = index;
+                activityDayInput.value = day;
+
+                addActivityForm.activity_name.value = activity.title;
+                addActivityForm.activity_time.value =
+                    activity.time.split(" ")[0];
+                addActivityForm.activity_location.value =
+                    activity.location;
+                addActivityForm.activity_duration.value =
+                    activity.duration;
+                addActivityForm.activity_description.value =
+                    activity.description;
+                addActivityForm.activity_type.value =
+                    activity.type;
+
+                saveActivityBtn.textContent = "Update Activity";
+                addActivityModalInstance.show();
+            }
             });
         });
         
@@ -759,7 +805,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     is_custom: true
                 };
                 if(dayNumber && activity) {
-                    add_activity(dayNumber, activity);
+                    if (editingIndex !== null) {
+                        update_activity(dayNumber, editingIndex, activity);
+                    } else {
+                        add_activity(dayNumber, activity);
+                    }
                     renderActivities(dayNumber);
                 }else{
                     alert("Error adding activity")
