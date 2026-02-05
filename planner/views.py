@@ -2068,7 +2068,11 @@ class ItineraryDetailView(LoginRequiredMixin, View):
         
         # Calculate nights
         nights = trip.calculate_nights()
-        
+        attractions = self.get_popular_attractions(trip.destination.name)
+
+        print("Attractions type:", type(attractions))
+        print("Attractions count:", len(attractions) if attractions else 0)
+        print("Sample attraction:", attractions[0] if attractions else None)
         context = {
             'trip': trip,
             'plan_id': plan_id,
@@ -2078,6 +2082,7 @@ class ItineraryDetailView(LoginRequiredMixin, View):
             'cost_estimate': cost_estimate,
             'hotel': hotel,
             'transport': transport,
+            'attractions':attractions,
             'total_days': days,
             'total_activities': sum(len(day['activities']) for day in days_data),
             'destination_name': trip.destination.name,
@@ -2260,6 +2265,131 @@ class ItineraryDetailView(LoginRequiredMixin, View):
                 'additional_travelers': round(base_cost * duration_multiplier * (traveler_multiplier - 1))
             }
         }
+    def get_popular_attractions(self, city_name):
+        """Get popular attractions for major cities"""
+        attractions_map = {
+            'yangon': [
+                {
+                    'name': 'Shwedagon Pagoda',
+                    'type': 'Religious Site',
+                    'description': 'Gilded pagoda with beautiful sunset views',
+                    'latitude': 16.7983,
+                    'longitude': 96.1496,
+                },
+                {
+                    'name': 'Bogyoke Market',
+                    'type': 'Market',
+                    'description': 'Colonial-era market with local crafts',
+                    'latitude': 16.7829,
+                    'longitude': 96.1583,
+                },
+                {
+                    'name': 'Kandawgyi Park',
+                    'type': 'Park',
+                    'description': 'Beautiful park with royal barge',
+                    'latitude': 16.7987,
+                    'longitude': 96.1703,
+                },
+                {
+                    'name': 'Sule Pagoda',
+                    'type': 'Religious Site',
+                    'description': 'Ancient pagoda in city center',
+                    'latitude': 16.7747,
+                    'longitude': 96.1580,
+                },
+                {
+                    'name': 'National Museum',
+                    'type': 'Museum',
+                    'description': 'Largest museum in Myanmar',
+                    'latitude': 16.7794,
+                    'longitude': 96.1433,
+                },
+            ],
+
+            'mandalay': [
+                {
+                    'name': 'Mandalay Palace',
+                    'type': 'Historical Site',
+                    'description': 'Last royal palace of Myanmar',
+                    'latitude': 21.9886,
+                    'longitude': 96.0931,
+                },
+                {
+                    'name': 'Mandalay Hill',
+                    'type': 'Natural Site',
+                    'description': 'Hill with panoramic city views',
+                    'latitude': 22.0093,
+                    'longitude': 96.1010,
+                },
+                {
+                    'name': 'U Bein Bridge',
+                    'type': 'Bridge',
+                    'description': "World's longest teak bridge",
+                    'latitude': 21.8946,
+                    'longitude': 96.0515,
+                },
+                {
+                    'name': 'Kuthodaw Pagoda',
+                    'type': 'Religious Site',
+                    'description': "Home to the world's largest book",
+                    'latitude': 22.0049,
+                    'longitude': 96.1120,
+                },
+                {
+                    'name': 'Mingun Pahtodawgyi',
+                    'type': 'Historical Site',
+                    'description': 'Massive unfinished stupa',
+                    'latitude': 22.0450,
+                    'longitude': 96.0197,
+                },
+            ],
+
+            'bagan': [
+                {
+                    'name': 'Ananda Temple',
+                    'type': 'Temple',
+                    'description': "One of Bagan's most beautiful temples",
+                    'latitude': 21.1702,
+                    'longitude': 94.8679,
+                },
+                {
+                    'name': 'Shwezigon Pagoda',
+                    'type': 'Pagoda',
+                    'description': 'Gilded pagoda built in 11th century',
+                    'latitude': 21.1953,
+                    'longitude': 94.8937,
+                },
+                {
+                    'name': 'Dhammayangyi Temple',
+                    'type': 'Temple',
+                    'description': 'Largest temple in Bagan',
+                    'latitude': 21.1606,
+                    'longitude': 94.8591,
+                },
+                {
+                    'name': 'Sunset at Buledi',
+                    'type': 'Viewpoint',
+                    'description': 'Popular sunset viewing spot',
+                    'latitude': 21.1717,
+                    'longitude': 94.8606,
+                },
+                {
+                    'name': 'Hot Air Balloon Ride',
+                    'type': 'Activity',
+                    'description': 'Spectacular sunrise over temples',
+                    'latitude': 21.1720,
+                    'longitude': 94.8600,
+                },
+            ]
+        }
+
+        city_lower = city_name.lower()
+        for key, attractions in attractions_map.items():
+            if key in city_lower:
+                return attractions
+
+        return []
+
 
 class AddActivityView(LoginRequiredMixin, View):
     """Add a new activity to itinerary"""

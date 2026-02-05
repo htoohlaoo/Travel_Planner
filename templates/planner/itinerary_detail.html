@@ -393,8 +393,27 @@
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Location</label>
-                        <input type="text" class="form-control" name="activity_location">
+
+                        <!-- Selected attraction display -->
+                        <input type="text"
+                            class="form-control mb-2"
+                            name="activity_location"
+                            id="selectedLocation"
+                            placeholder="Pick from map"
+                            readonly>
+
+                        <!-- Hidden lat/lng -->
+                        <input type="hidden" name="activity_lat" id="selectedLat">
+                        <input type="hidden" name="activity_lng" id="selectedLng">
+
+                        <button type="button"
+                                class="btn btn-outline-primary w-100"
+                                id="openLocationPicker">
+                            <i class="fas fa-map-marker-alt me-2"></i>
+                            Pick Location from Map
+                        </button>
                     </div>
+
                     <div class="mb-3">
                         <label class="form-label">Description</label>
                         <textarea class="form-control" name="activity_description" rows="3"></textarea>
@@ -419,6 +438,26 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="locationPickerModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Select Attraction</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" style="height: 75vh;">
+                {% load static %}
+                <iframe
+                    id="mapPickerFrame"
+                    src="{% static 'maps/map_box_attractions.html' %}"
+                    style="border:0; width:100%; height:100%;">
+                </iframe>
+            </div>
+        </div>
+    </div>
+</div>
+
 
 <style>
 .itinerary-hero {
@@ -526,6 +565,9 @@
     display: inline-block;
 }
 </style>
+<script>
+    const ATTRACTIONS_DATA = {{ attractions|safe }};
+</script>
 <script>
 // Get Django variables first
 const tripId = "{{ trip.id }}";
@@ -695,8 +737,65 @@ function renderActivities(dayNumber) {
         </div>
     `);
 }
+window.addEventListener("message", function (event) {
+    if (event.origin !== window.location.origin) return;
+    if (event.data.type !== "ATTRACTION_SELECTED") return;
+
+    const attraction = event.data.attraction;
+
+    document.getElementById("selectedLocation").value =
+        attraction.name;
+
+    document.getElementById("selectedLat").value =
+        attraction.latitude;
+
+    document.getElementById("selectedLng").value =
+        attraction.longitude;
+
+    bootstrap.Modal.getInstance(
+        document.getElementById("locationPickerModal")
+    ).hide();
+});
 
 document.addEventListener('DOMContentLoaded', function() {
+
+    const locationPickerModal = new bootstrap.Modal(
+        document.getElementById("locationPickerModal")
+    );
+
+    const mapFrame = document.getElementById("mapPickerFrame");
+    const openPickerBtn = document.getElementById("openLocationPicker");
+
+    openPickerBtn?.addEventListener("click", () => {
+        locationPickerModal.show();
+
+        // If iframe is already loaded, send immediately
+        if (mapFrame.contentWindow) {
+            console.log("Send Attractions List Data ", ATTRACTIONS_DATA);
+            mapFrame.contentWindow.postMessage(
+                {
+                    type: "ATTRACTIONS_DATA",
+                    payload: ATTRACTIONS_DATA
+                },
+                window.location.origin
+            );
+        } else {
+            // fallback for first load
+            mapFrame.onload = () => {
+                console.log("Send Attractions List Data (first load) ", ATTRACTIONS_DATA);
+                mapFrame.contentWindow.postMessage(
+                    {
+                        type: "ATTRACTIONS_DATA",
+                        payload: ATTRACTIONS_DATA
+                    },
+                    window.location.origin
+                );
+            };
+        }
+    });
+
+
+
     // Get CSRF token
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
     let editingIndex = null;
