@@ -1021,6 +1021,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    document.querySelectorAll('#daysTab button[data-bs-toggle="tab"]').forEach((tabButton) => {
+        tabButton.addEventListener('shown.bs.tab', (event) => {
+            const targetId = event.target?.getAttribute('data-bs-target') || '';
+            const match = targetId.match(/day(\d+)/);
+            if (!match || !routeDaySelect) return;
+
+            routeDaySelect.value = match[1];
+            sendRouteForDay(match[1]);
+        });
+    });
+
 
 
     // Get CSRF token
