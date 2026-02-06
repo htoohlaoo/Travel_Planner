@@ -648,6 +648,45 @@ function get_activity_by_day(dayNumber) {
     return allActivities[dayNumber] || [];
 }
 
+function parseTimeToMinutes(timeStr) {
+    if (!timeStr) return Number.MAX_SAFE_INTEGER;
+
+    const trimmed = timeStr.trim();
+    const ampmMatch = trimmed.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+    if (ampmMatch) {
+        let hours = parseInt(ampmMatch[1], 10);
+        const minutes = parseInt(ampmMatch[2], 10);
+        const period = ampmMatch[3].toUpperCase();
+        if (period === "PM" && hours < 12) hours += 12;
+        if (period === "AM" && hours === 12) hours = 0;
+        return hours * 60 + minutes;
+    }
+
+    const parts = trimmed.split(":");
+    if (parts.length >= 2) {
+        const hours = parseInt(parts[0], 10);
+        const minutes = parseInt(parts[1], 10);
+        if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+            return hours * 60 + minutes;
+        }
+    }
+
+    return Number.MAX_SAFE_INTEGER;
+}
+
+function sort_activities(dayNumber) {
+    const allActivities = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    if (!allActivities[dayNumber]) return;
+
+    allActivities[dayNumber].sort((a, b) => {
+        const aTime = parseTimeToMinutes(a.time);
+        const bTime = parseTimeToMinutes(b.time);
+        return aTime - bTime;
+    });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allActivities));
+}
+
 
 function renderActivities(dayNumber) {
     const timeline =
@@ -656,6 +695,7 @@ function renderActivities(dayNumber) {
 
     timeline.innerHTML = "";
 
+    sort_activities(dayNumber);
     const activities = get_activity_by_day(dayNumber);
 
     activities.forEach((activity, index) => {
@@ -752,13 +792,11 @@ window.addEventListener("message", function (event) {
     const locationInput = document.getElementById("selectedLocation");
     const latInput = document.getElementById("selectedLat");
     const lngInput = document.getElementById("selectedLng");
-    const nameInput = document.getElementById("activityName");
     const descriptionInput = document.getElementById("activityDescription");
 
     if (locationInput) locationInput.value = attraction.name || "";
     if (latInput) latInput.value = attraction.latitude || "";
     if (lngInput) lngInput.value = attraction.longitude || "";
-    if (nameInput) nameInput.value = attraction.name || "";
     if (descriptionInput && attraction.description) {
         descriptionInput.value = attraction.description;
     }
@@ -779,10 +817,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     openPickerBtn?.addEventListener("click", () => {
         locationPickerModal.show();
+    });
 
-        // If iframe is already loaded, send immediately
-        if (mapFrame.contentWindow) {
-            console.log("Send Attractions List Data ", ATTRACTIONS_DATA);
+    document.getElementById("locationPickerModal")
+        ?.addEventListener("shown.bs.modal", () => {
+            if (!mapFrame.contentWindow) return;
+
             mapFrame.contentWindow.postMessage(
                 {
                     type: "ATTRACTIONS_DATA",
@@ -790,20 +830,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 },
                 window.location.origin
             );
-        } else {
-            // fallback for first load
-            mapFrame.onload = () => {
-                console.log("Send Attractions List Data (first load) ", ATTRACTIONS_DATA);
-                mapFrame.contentWindow.postMessage(
-                    {
-                        type: "ATTRACTIONS_DATA",
-                        payload: ATTRACTIONS_DATA
-                    },
-                    window.location.origin
-                );
-            };
-        }
-    });
+
+            mapFrame.contentWindow.postMessage(
+                {
+                    type: "REFRESH_MAP"
+                },
+                window.location.origin
+            );
+        });
 
 
 
