@@ -360,6 +360,34 @@
     </div>
 </div>
 
+<div class="container pb-5">
+    <div class="card-glass p-4">
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+            <h5 class="fw-bold mb-2 mb-md-0">
+                <i class="fas fa-route me-2"></i>Daily Activity Route
+            </h5>
+            <div class="d-flex align-items-center gap-2">
+                <label class="small text-muted">Day</label>
+                <select class="form-select form-select-sm" id="routeDaySelect" style="width: 120px;">
+                    {% for day in days_data %}
+                    <option value="{{ day.day_number }}">Day {{ day.day_number }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="ratio ratio-16x9">
+            <iframe
+                id="routeMapFrame"
+                src="{% static 'maps/map_box_day_route_steps.html' %}"
+                style="border:0; width:100%; height:100%;"
+            ></iframe>
+        </div>
+        <div class="xsmall text-muted mt-2">
+            Route uses activities with saved map locations.
+        </div>
+    </div>
+</div>
+
 <!-- Add Activity Modal -->
 <div class="modal fade" id="addActivityModal" tabindex="-1">
     <div class="modal-dialog">
@@ -567,7 +595,16 @@
 </style>
 <script>
     const ATTRACTIONS_DATA = {{ attractions|safe }};
+    const DESTINATION_CENTER = {
+        lat: Number("{{ trip.destination.latitude|default_if_none:'' }}"),
+        lng: Number("{{ trip.destination.longitude|default_if_none:'' }}")
+    };
 </script>
+{% if days_data %}
+{{ days_data|json_script:"server-days-data" }}
+{% else %}
+<script id="server-days-data" type="application/json">[]</script>
+{% endif %}
 <script>
 // Get Django variables first
 const tripId = "{{ trip.id }}";
@@ -575,6 +612,54 @@ const planId = "{{ plan_id }}";
 
 //storage key for storing activity in localStorage
 const STORAGE_KEY = `${tripId}:${planId}`;
+let routeDaySelect = null;
+let routeMapFrame = null;
+
+function seed_activities_from_server() {
+    const existing = localStorage.getItem(STORAGE_KEY);
+    if (existing) return;
+
+    const serverNode = document.getElementById("server-days-data");
+    if (!serverNode) return;
+
+    let serverDays = [];
+    try {
+        serverDays = JSON.parse(serverNode.textContent || "[]");
+    } catch (err) {
+        console.warn("Failed to parse server days data", err);
+        return;
+    }
+
+    const initial = {};
+    serverDays.forEach((day) => {
+        if (!day || !day.day_number || !Array.isArray(day.activities)) return;
+
+        initial[day.day_number] = day.activities.map((activity) => ({
+            time: activity.time || "12:00 PM",
+            title: activity.title || "Activity",
+            location: activity.location || "",
+            duration: activity.duration || "1 hour",
+            description: activity.description || "",
+            type: activity.type || "other",
+            lat:
+                activity.lat ||
+                activity.latitude ||
+                activity.activity_lat ||
+                activity.activity_latitude ||
+                "",
+            lng:
+                activity.lng ||
+                activity.longitude ||
+                activity.activity_lng ||
+                activity.activity_longitude ||
+                "",
+            icon: activity.icon || "fas fa-star",
+            is_custom: false,
+        }));
+    });
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+}
 
 function add_activity(dayNumber, activityObject) {
     // 1. Get existing data from localStorage (or empty object if none)
@@ -776,6 +861,89 @@ function renderActivities(dayNumber) {
             </div>
         </div>
     `);
+
+    if (routeDaySelect && String(dayNumber) === String(routeDaySelect.value)) {
+        sendRouteForDay(dayNumber);
+    }
+}
+
+function get_route_activities(dayNumber) {
+    sort_activities(dayNumber);
+    const activities = get_activity_by_day(dayNumber);
+
+    const normalize = (text) => (text || '').toString().trim().toLowerCase();
+
+    const enrichCoords = (activity) => {
+        if (activity.lat || activity.lng || activity.latitude || activity.longitude) {
+            return {
+                ...activity,
+                lat: Number(activity.lat ?? activity.latitude),
+                lng: Number(activity.lng ?? activity.longitude)
+            };
+        }
+
+        if (!Array.isArray(ATTRACTIONS_DATA)) return activity;
+
+        const nameCandidates = [activity.location, activity.title]
+            .map(normalize)
+            .filter(Boolean);
+
+        if (!nameCandidates.length) return activity;
+
+        const match = ATTRACTIONS_DATA.find((item) => {
+            const attrName = normalize(item.name);
+            return nameCandidates.some((candidate) =>
+                attrName === candidate || attrName.includes(candidate) || candidate.includes(attrName)
+            );
+        });
+
+        if (match) {
+            return {
+                ...activity,
+                lat: Number(match.latitude),
+                lng: Number(match.longitude)
+            };
+        }
+
+        if (!Number.isNaN(DESTINATION_CENTER.lat) && !Number.isNaN(DESTINATION_CENTER.lng)) {
+            return {
+                ...activity,
+                lat: DESTINATION_CENTER.lat,
+                lng: DESTINATION_CENTER.lng
+            };
+        }
+
+        return activity;
+    };
+
+    return activities
+        .map(enrichCoords)
+        .filter(activity =>
+            activity.lat !== undefined &&
+            activity.lng !== undefined &&
+            activity.lat !== "" &&
+            activity.lng !== ""
+        )
+        .map(activity => ({
+            lat: Number(activity.lat),
+            lng: Number(activity.lng),
+            title: activity.title,
+            time: activity.time,
+            location: activity.location
+        }))
+        .filter(activity => !Number.isNaN(activity.lat) && !Number.isNaN(activity.lng));
+}
+
+function sendRouteForDay(dayNumber) {
+    if (!routeMapFrame?.contentWindow) return;
+
+    routeMapFrame.contentWindow.postMessage(
+        {
+            type: "DAY_ROUTE_DATA",
+            payload: get_route_activities(dayNumber)
+        },
+        window.location.origin
+    );
 }
 window.addEventListener("message", function (event) {
     if (event.origin !== window.location.origin) return;
@@ -808,12 +976,16 @@ window.addEventListener("message", function (event) {
 
 document.addEventListener('DOMContentLoaded', function() {
 
+    seed_activities_from_server();
+
     const locationPickerModal = new bootstrap.Modal(
         document.getElementById("locationPickerModal")
     );
 
     const mapFrame = document.getElementById("mapPickerFrame");
     const openPickerBtn = document.getElementById("openLocationPicker");
+    routeDaySelect = document.getElementById("routeDaySelect");
+    routeMapFrame = document.getElementById("routeMapFrame");
 
     openPickerBtn?.addEventListener("click", () => {
         locationPickerModal.show();
@@ -839,6 +1011,16 @@ document.addEventListener('DOMContentLoaded', function() {
             );
         });
 
+    routeDaySelect?.addEventListener("change", (event) => {
+        sendRouteForDay(event.target.value);
+    });
+
+    routeMapFrame?.addEventListener("load", () => {
+        if (routeDaySelect) {
+            sendRouteForDay(routeDaySelect.value);
+        }
+    });
+
 
 
     // Get CSRF token
@@ -847,6 +1029,10 @@ document.addEventListener('DOMContentLoaded', function() {
     {% for day in days_data %}
         renderActivities({{ day.day_number }});
     {% endfor %}
+
+    if (routeDaySelect) {
+        sendRouteForDay(routeDaySelect.value);
+    }
 
     // Print functionality
     document.getElementById('printItinerary')?.addEventListener('click', function() {
@@ -937,14 +1123,32 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 const formData = new FormData(addActivityForm);
                 const dayNumber = activityDayInput?.value;
-                
+
+                let activityLat = formData.get('activity_lat') || '';
+                let activityLng = formData.get('activity_lng') || '';
+                const activityLocation = formData.get('activity_location') || 'Location';
+                const activityTitle = formData.get('activity_name') || 'New Activity';
+
+                if ((!activityLat || !activityLng) && Array.isArray(ATTRACTIONS_DATA)) {
+                    const targetName = (activityLocation || activityTitle).toString().toLowerCase();
+                    const match = ATTRACTIONS_DATA.find(item =>
+                        item.name && item.name.toString().toLowerCase() === targetName
+                    );
+                    if (match) {
+                        activityLat = match.latitude;
+                        activityLng = match.longitude;
+                    }
+                }
+
                 const activity = {
                     time: (formData.get('activity_time') || '12:00') + ' PM',
-                    title: formData.get('activity_name') || 'New Activity',
-                    location: formData.get('activity_location') || 'Location',
+                    title: activityTitle,
+                    location: activityLocation,
                     duration: formData.get('activity_duration') || '1 hour',
                     description: formData.get('activity_description') || 'Description',
                     type: formData.get('activity_type') || 'sightseeing',
+                    lat: activityLat,
+                    lng: activityLng,
                     icon: 'fas fa-star',
                     is_custom: true
                 };
