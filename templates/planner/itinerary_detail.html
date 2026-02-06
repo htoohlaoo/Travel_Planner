@@ -1189,6 +1189,19 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('An error occurred. Please try again.');
                 }); {% endcomment %}
                 
+                addActivityForm.reset();
+                if (addActivityForm.activity_lat) {
+                    addActivityForm.activity_lat.value = '';
+                }
+                if (addActivityForm.activity_lng) {
+                    addActivityForm.activity_lng.value = '';
+                }
+                const locationInput = document.getElementById("selectedLocation");
+                if (locationInput) locationInput.value = '';
+                const descriptionInput = document.getElementById("activityDescription");
+                if (descriptionInput) descriptionInput.value = '';
+                editingIndex = null;
+                saveActivityBtn.textContent = "Add Activity";
                 addActivityModalInstance.hide();
             });
         }
