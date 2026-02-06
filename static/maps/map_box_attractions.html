@@ -148,7 +148,13 @@ function showAttractionModal(attraction) {
     selectAttractionBtn.onclick = () => {
         window.parent.postMessage({
             type: 'ATTRACTION_SELECTED',
-            attractionId: attraction.id
+            attraction: {
+                name: attraction.name,
+                latitude: attraction.latitude,
+                longitude: attraction.longitude,
+                description: attraction.description,
+                type: attraction.type || attraction.category
+            }
         }, window.location.origin);
         closeModal();
     };

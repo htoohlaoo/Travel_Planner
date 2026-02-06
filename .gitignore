@@ -17,8 +17,10 @@ media/
 staticfiles/
 
 # Environment / virtualenv
-env/
+myenv/
+myenv/**
 venv/
+.venv/
 ENV/
 env.bak/
 venv.bak/
